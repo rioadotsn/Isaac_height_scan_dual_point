@@ -511,7 +511,7 @@ class RewardsCfg:
 
     action_smoothness = RewTerm(func=mdp.action_smoothness_penalty, weight=-1.0)
     action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.1)#0827resume 加上
-    
+
 @configclass
 class TerminationsCfg:
     """Termination terms for the MDP."""
