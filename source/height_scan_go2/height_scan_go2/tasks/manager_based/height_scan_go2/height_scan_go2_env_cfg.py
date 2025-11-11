@@ -42,7 +42,7 @@ import isaaclab.terrains as terrain_gen
 # 創建自定義配置
 CUSTOM_TERRAINS_CFG = TerrainGeneratorCfg(
     size=(8.0, 8.0),
-    border_width=80.0,
+    border_width=300.0,
     num_rows=10,
     num_cols=20,
     horizontal_scale=0.1,
@@ -51,7 +51,7 @@ CUSTOM_TERRAINS_CFG = TerrainGeneratorCfg(
     use_cache=False,
     sub_terrains={
         # "pyramid_stairs": terrain_gen.MeshPyramidStairsTerrainCfg(
-        #     proportion=0.4,
+        #     proportion=0.5,
         #     step_height_range=(0.13, 0.2),
         #     step_width=0.25,
         #     platform_width=3.0,
@@ -60,11 +60,12 @@ CUSTOM_TERRAINS_CFG = TerrainGeneratorCfg(
         # ),
         "pyramid_stairs_inv": terrain_gen.MeshInvertedPyramidStairsTerrainCfg(
             proportion=1.0,
-            step_height_range=(0.1, 0.2),
-            step_width=0.25,
+            step_height_range=(0.135, 0.135), #0.1 0.13
+            step_width=0.46, #棧板深0.46 高 0.13 #樓梯 深0.28
             platform_width=3.0,
             border_width=1.0,
             holes=False,
+            vertical_gap=0.1 #0.03 #0.05 #0.07 #0.09
         ),
     },
 )
@@ -223,7 +224,7 @@ def foot_to_target_reward(
     
     # 額外的步態相位獎勵：鼓勵交替運動
     if alternating_reward:
-        # 計算腳部相對位置差異（鼓勵非同步運動）
+        # 計算腳部相對位置差異（鼓勵非同步運動)
         foot_diff = torch.norm(left_foot_body - right_foot_body, dim=1)
         
         # 當兩腳距離適中時給予額外獎勵（避免完全同步）
@@ -250,7 +251,7 @@ class MySceneCfg(InteractiveSceneCfg):
         prim_path="/World/ground",
         terrain_type="generator",
         terrain_generator=CUSTOM_TERRAINS_CFG, #ROUGH_TERRAINS_CFG CUSTOM_TERRAINS_CFG
-        max_init_terrain_level=5,
+        max_init_terrain_level=5, #5 #10
         collision_group=-1,
         physics_material=sim_utils.RigidBodyMaterialCfg(
             friction_combine_mode="multiply",
@@ -270,7 +271,7 @@ class MySceneCfg(InteractiveSceneCfg):
     # sensors
     height_scanner = RayCasterCfg(
         prim_path="{ENV_REGEX_NS}/Robot/base",
-        offset=RayCasterCfg.OffsetCfg(pos=(0.4, 0.13, 0.15)),
+        offset=RayCasterCfg.OffsetCfg(pos=(0.4, 0.14, 0.15)),
         attach_yaw_only=False,
         pattern_cfg=patterns.GridPatternCfg(
             resolution=1.0,
@@ -283,7 +284,7 @@ class MySceneCfg(InteractiveSceneCfg):
 
     height_scanner_1 = RayCasterCfg(
         prim_path="{ENV_REGEX_NS}/Robot/base", 
-        offset=RayCasterCfg.OffsetCfg(pos=(0.4, -0.13, 0.15)),
+        offset=RayCasterCfg.OffsetCfg(pos=(0.4, -0.14, 0.15)),
         attach_yaw_only=False,
         pattern_cfg=patterns.GridPatternCfg(
             resolution=1.0,
@@ -293,6 +294,35 @@ class MySceneCfg(InteractiveSceneCfg):
         debug_vis=False,
         mesh_prim_paths=["/World/ground"],
     )
+
+# #Privileged
+#     height_scanner_2 = RayCasterCfg(
+#         prim_path="{ENV_REGEX_NS}/Robot/base",
+#         offset=RayCasterCfg.OffsetCfg(pos=(0.4, 0.14, 0.15)),
+#         attach_yaw_only=True,
+#         pattern_cfg=patterns.GridPatternCfg(
+#             resolution=0.1,
+#             size=[0.5, 0.5],
+#         ),
+#         max_distance=2.0,
+#         debug_vis=False,
+#         mesh_prim_paths=["/World/ground"],
+#     )
+
+#     height_scanner_3 = RayCasterCfg(
+#         prim_path="{ENV_REGEX_NS}/Robot/base",
+#         offset=RayCasterCfg.OffsetCfg(pos=(0.4, -0.14, 0.15)),
+#         attach_yaw_only=True,
+#         pattern_cfg=patterns.GridPatternCfg(
+#             resolution=0.1,
+#             size=[0.5, 0.5],
+#         ),
+#         max_distance=2.0,
+#         debug_vis=False,
+#         mesh_prim_paths=["/World/ground"],
+#     )
+    
+
     contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", history_length=3, track_air_time=True)
     # lights
     sky_light = AssetBaseCfg(
@@ -322,7 +352,7 @@ class CommandsCfg:
         heading_control_stiffness=0.5,
         debug_vis=True,
         ranges=mdp.UniformVelocityCommandCfg.Ranges(
-            lin_vel_x=(-0.5, 1.0), lin_vel_y=(-0.5, 0.5), ang_vel_z=(-0.5, 0.5), heading=(-math.pi, math.pi)
+            lin_vel_x=(-0.3, 1.0), lin_vel_y=(-0.0, 0.0), ang_vel_z=(-0.5, 0.5), heading=(-math.pi, math.pi)
         ),
     )
 
@@ -367,9 +397,38 @@ class ObservationsCfg:
             self.enable_corruption = True
             self.concatenate_terms = True
 
+    @configclass
+    class PrivilegedCfg(ObsGroup):
+        """Observations for policy group."""
+
+        # observation terms (order preserved)
+        base_lin_vel = ObsTerm(func=mdp.base_lin_vel)
+        # base_ang_vel = ObsTerm(func=mdp.base_ang_vel)
+        # projected_gravity = ObsTerm(func=mdp.projected_gravity)
+        # velocity_commands = ObsTerm(func=mdp.generated_commands, params={"command_name": "base_velocity"})
+        # joint_pos = ObsTerm(func=mdp.joint_pos_rel)
+        # joint_vel = ObsTerm(func=mdp.joint_vel_rel)
+        # actions = ObsTerm(func=mdp.last_action)
+        # height_priv_1 = ObsTerm(
+        #     func=mdp.height_scan,
+        #     params={
+        #         "sensor_cfg": SceneEntityCfg("height_scanner_2")
+        #     },
+        #     clip=(-2.0, 2.0),
+        # )
+        # height_priv_2 = ObsTerm(
+        #     func=mdp.height_scan,
+        #     params={
+        #         "sensor_cfg": SceneEntityCfg("height_scanner_3")
+        #     },
+        #     clip=(-2.0, 2.0),
+        # )
+        def __post_init__(self):
+            self.concatenate_terms = True
+
     # observation groups
     policy: PolicyCfg = PolicyCfg()
-
+    privileged: PrivilegedCfg = PrivilegedCfg()
 
 @configclass
 class EventCfg:
@@ -480,7 +539,7 @@ class RewardsCfg:
     undesired_contacts = RewTerm(
         func=mdp.undesired_contacts,
         weight=-1.0,
-        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*THIGH"), "threshold": 1.0},
+        params={"sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*CALF"), "threshold": 1.0},#THIGH
     )
     foot_target_tracking = RewTerm(
         func=foot_to_target_reward,
@@ -493,15 +552,7 @@ class RewardsCfg:
             "max_distance": 0.1
         }
     )
-    # feet_slide = RewTerm(
-    #     func=mdp.feet_slide,
-    #     weight=-0.1,
-    #     params={
-    #         "sensor_cfg": SceneEntityCfg("contact_forces", body_names=".*_foot"),
-    #         "asset_cfg": SceneEntityCfg("robot", body_names="base")
-    #     }
-    # )
-
+    
     # -- optional penalties
     flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=0.0)
     dof_pos_limits = RewTerm(func=mdp.joint_pos_limits, weight=0.0)
@@ -510,7 +561,7 @@ class RewardsCfg:
     similar_to_default = RewTerm(func=mdp.similar2default, weight=-0.1) 
 
     action_smoothness = RewTerm(func=mdp.action_smoothness_penalty, weight=-1.0)
-    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.1)#0827resume 加上
+    action_rate_l2 = RewTerm(func=mdp.action_rate_l2, weight=-0.1)
 
 @configclass
 class TerminationsCfg:
@@ -602,26 +653,19 @@ class HeightScanGo2EnvCfg(RoughEnvCfg):
         # post init of parent
         super().__post_init__()
 
-        self.viewer.eye = (1.0, 1.0, 1.0)
+        self.viewer.eye = (7.0, 7.0, 7.0)
 
         self.scene.robot = UNITREE_GO2_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
         self.scene.height_scanner.prim_path = "{ENV_REGEX_NS}/Robot/base"
-        # scale down the terrains because the robot is small
-        # self.scene.terrain.terrain_generator.sub_terrains["boxes"].grid_height_range = (0.025, 0.1)
-        # self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_range = (0.01, 0.06)
-        # self.scene.terrain.terrain_generator.sub_terrains["random_rough"].noise_step = 0.01
         
         # self.scene.terrain.terrain_generator.sub_terrains["boxes"].proportion = 0.0
         # self.scene.terrain.terrain_generator.sub_terrains["random_rough"].proportion = 0.0
         # self.scene.terrain.terrain_generator.sub_terrains["hf_pyramid_slope"].proportion = 0.0
         # self.scene.terrain.terrain_generator.sub_terrains["hf_pyramid_slope_inv"].proportion = 0.0
-        #  self.scene.terrain.terrain_generator.sub_terrains["pyramid_stairs"].proportion = 0.4
-        self.scene.terrain.terrain_generator.sub_terrains["pyramid_stairs_inv"].proportion = 1.0
+        # self.scene.terrain.terrain_generator.sub_terrains["pyramid_stairs"].proportion = 0.4
+        # self.scene.terrain.terrain_generator.sub_terrains["pyramid_stairs_inv"].proportion = 1.0
         
         
-        # self.scene.terrain.terrain_generator.sub_terrains["pyramid_stairs"].step_height_range=(0.05, 0.3)
-        # self.scene.terrain.terrain_generator.sub_terrains["pyramid_stairs_inv"].step_height_range=(0.05, 0.3)
-
         #self.scene.terrain.terrain_generator.sub_terrains["flat"].proportion = 1.0
 
         # reduce action scale
@@ -647,7 +691,8 @@ class HeightScanGo2EnvCfg(RoughEnvCfg):
         # rewards
         self.rewards.feet_air_time.params["sensor_cfg"].body_names = ".*_foot"
         self.rewards.feet_air_time.weight = 0.8 # resume
-        self.rewards.undesired_contacts = None
+        self.rewards.undesired_contacts.params["sensor_cfg"].body_names = ".*_calf"
+        self.rewards.undesired_contacts.weight = -1.0
         self.rewards.dof_torques_l2.weight = -0.00002  #-0.00002 
         self.rewards.track_lin_vel_xy_exp.weight = 5.0 #5  #1.5
         self.rewards.track_ang_vel_z_exp.weight = 2.5 #2.5  #0.75

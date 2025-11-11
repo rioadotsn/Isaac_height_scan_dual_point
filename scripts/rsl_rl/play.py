@@ -72,7 +72,7 @@ cmd_vel_x = 0.0
 cmd_vel_y = 0.0
 cmd_angular_z = 0.0
 vel_step = 0.1  # 速度調整步長
-key_states = {'w': False, 's': False, 'a': False, 'd': False, 'q': False, 'r': False}
+key_states = {'w': False, 'x': False, 'z': False, 'd': False, 'q': False, 'r': False}
 
 def on_press(key):
     global key_states
@@ -95,14 +95,14 @@ def update_commands():
     
     # X方向速度控制
     if key_states['w']:
-        cmd_vel_x = min(cmd_vel_x + vel_step, 2.0)
-    elif key_states['s']:
-        cmd_vel_x = max(cmd_vel_x - vel_step, -2.0)
+        cmd_vel_x = min(cmd_vel_x + vel_step, 1.0)
+    elif key_states['x']:
+        cmd_vel_x = max(cmd_vel_x - vel_step, -0.3)
     else:
         cmd_vel_x *= 0.9  # 逐漸減速
     
     # Y方向速度控制
-    if key_states['a']:
+    if key_states['z']:
         cmd_vel_y = min(cmd_vel_y + vel_step, 2.0)
     elif key_states['d']:
         cmd_vel_y = max(cmd_vel_y - vel_step, -2.0)
